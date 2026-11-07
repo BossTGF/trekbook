@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>TrekBook</title>
+<meta name="description" content="จองที่นั่งทริปเดินป่า จ่ายเงิน และติดตามทริปของคุณ">
+<meta name="theme-color" content="#f3f1ea">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TrekBook">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600&family=Noto+Serif+Thai:wght@600&display=swap">
+<style>
+  :root { --cream:#f3f1ea; --paper:#fbfaf6; --ink:#203628; --ink2:#3d5446; --muted:#5a6b60; --line:#e3e6dc;
+          --sage:#426349; --sage2:#557a5d; --sage-50:#f0f5ee; --gold:#e9c98a; --danger:#b5523c;
+          --font:"IBM Plex Sans Thai","Sarabun","Noto Sans Thai",-apple-system,"Segoe UI",Arial,sans-serif; --serif:"Noto Serif Thai",Georgia,serif; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--cream); color:var(--ink); font-family:var(--font); -webkit-text-size-adjust:100%; }
+  body { overflow:hidden; }
+  [hidden] { display:none !important; }
+  #tbFrame { position:fixed; inset:0; width:100%; height:100%; border:0; display:block; background:var(--cream); }
+
+  /* ---- หน้าโหลดตอนเปิดแอป ---- */
+  .tb-screen { position:fixed; inset:0; z-index:5; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px;
+               background:var(--cream); text-align:center; transition:opacity .35s ease, visibility .35s; }
+  .tb-screen.out { opacity:0; visibility:hidden; pointer-events:none; }
+  .tb-mark { width:84px; height:84px; filter:drop-shadow(0 10px 24px rgba(66,99,73,.28)); }
+  .tb-mark img { display:block; width:100%; height:100%; }
+  .tb-name { font-family:var(--serif); font-weight:600; font-size:30px; margin-top:18px; letter-spacing:.2px; }
+  .tb-tag { color:var(--muted); font-size:15px; margin-top:2px; }
+  .tb-dots { display:flex; gap:7px; margin-top:26px; }
+  .tb-dots i { width:8px; height:8px; border-radius:50%; background:var(--sage2); opacity:.25; animation:tbDot 1.2s ease-in-out infinite; }
+  .tb-dots i:nth-child(2) { animation-delay:.18s; } .tb-dots i:nth-child(3) { animation-delay:.36s; }
+  @keyframes tbDot { 0%, 100% { opacity:.25; transform:translateY(0); } 40% { opacity:1; transform:translateY(-4px); } }
+  .tb-hills { position:absolute; left:0; right:0; bottom:0; height:22vh; min-height:120px; pointer-events:none; }
+  .tb-hills svg { width:100%; height:100%; display:block; }
+  .tb-slow { margin-top:22px; font-size:14px; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:10px; position:relative; z-index:1; }
+
+  /* ---- ปุ่ม / การ์ด ---- */
+  .tb-btn { appearance:none; border:0; border-radius:999px; padding:13px 22px; font:600 16px/1.2 var(--font); cursor:pointer;
+            background:linear-gradient(180deg,#5c8466,#4a6f53); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 8px 20px rgba(66,99,73,.24);
+            display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; }
+  .tb-btn:active { transform:translateY(1px); }
+  .tb-btn.light { background:#fff; color:var(--sage); box-shadow:inset 0 0 0 1.5px #cadbc8; }
+  .tb-btn.sm { width:auto; padding:9px 18px; font-size:14px; }
+  .tb-link { appearance:none; border:0; background:none; color:var(--sage2); font:600 15px var(--font); padding:10px; cursor:pointer; }
+  .tb-note-card, .tb-card { width:100%; max-width:420px; background:var(--paper); border-radius:28px; padding:28px 24px 20px; position:relative; z-index:1;
+            box-shadow:0 1px 2px rgba(32,54,40,.04), 0 18px 44px rgba(32,54,40,.13); text-align:center; }
+  .tb-note-card .ic { font-size:40px; line-height:1; }
+  .tb-note-card h2, .tb-card h1 { font-family:var(--serif); font-weight:600; font-size:22px; margin:12px 0 6px; line-height:1.35; }
+  .tb-note-card p, .tb-lead { margin:0 0 18px; color:var(--muted); font-size:15px; line-height:1.65; }
+  .tb-note-card code { font-size:13px; background:#eef1ea; padding:2px 6px; border-radius:6px; color:var(--ink2); word-break:break-all; }
+
+  /* ---- หน้าแนะนำการติดตั้ง (เปิดในเบราว์เซอร์บนมือถือครั้งแรก) ---- */
+  .tb-install { position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; align-items:center; padding:16px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+                background:rgba(32,54,40,.28); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); animation:tbFade .25s ease; }
+  .tb-card { padding:26px 22px 14px; animation:tbUp .32s cubic-bezier(.2,.8,.2,1); margin-top:auto; margin-bottom:max(0px, env(safe-area-inset-bottom)); flex:0 0 auto; }
+  .tb-card .tb-mark { width:64px; height:64px; margin:0 auto; }
+  .tb-steps { list-style:none; margin:4px 0 16px; padding:0; text-align:left; display:flex; flex-direction:column; gap:10px; }
+  .tb-steps li { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:16px; background:#fff; border:1px solid var(--line); font-size:15px; line-height:1.5; }
+  .tb-steps .n { flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--sage); color:#fff; font-weight:600; font-size:13px;
+                 display:inline-flex; align-items:center; justify-content:center; }
+  .tb-card .ico { display:inline-block; vertical-align:-5px; width:22px; height:22px; flex:0 0 auto; color:#2f74d0; margin:0 2px; }
+  .tb-steps b { font-weight:600; }
+  .tb-hint { font-size:13px; color:var(--muted); margin:10px 0 2px; line-height:1.6; }
+  .tb-done { font-size:44px; line-height:1; margin:8px 0 2px; }
+  @keyframes tbFade { from { opacity:0; } to { opacity:1; } }
+  @keyframes tbUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  .tb-note-card h2, .tb-card h1, .tb-lead, .tb-note-card p, .tb-hint { text-wrap:balance; }
+  @media (min-width:700px) { .tb-card { margin-bottom:auto; } }
+  @media (prefers-reduced-motion: reduce) { .tb-dots i, .tb-install, .tb-card { animation:none; } .tb-screen { transition:none; } }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<iframe id="tbFrame" title="TrekBook" allow="clipboard-write; clipboard-read; geolocation; camera; fullscreen"></iframe>
+
+<div id="tbSplash" class="tb-screen" role="status" aria-label="กำลังเปิด TrekBook">
+  <div class="tb-mark"><img src="icons/icon-192.png" alt=""></div>
+  <div class="tb-name">TrekBook</div>
+  <div class="tb-tag">ระบบจองทริปเดินป่า</div>
+  <div class="tb-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="tb-slow" id="tbSlow" hidden>ยังโหลดอยู่ อินเทอร์เน็ตอาจช้า
+    <button class="tb-btn light sm" type="button" onclick="tbApp.reload()">ลองใหม่</button></div>
+  <div class="tb-hills" aria-hidden="true"><svg viewBox="0 0 400 120" preserveAspectRatio="none">
+    <path d="M0 70C60 40 110 44 160 62s96 22 150 0 70-20 90-12v70H0z" fill="#dfe8db"/>
+    <path d="M0 92c70-22 130-22 190-8s110 12 160-2 40-8 50-6v44H0z" fill="#cadbc8"/>
+    <path d="M0 108c80-12 160-14 240-6s110 4 160-2v20H0z" fill="#a9c3a7"/></svg></div>
+</div>
+
+<div id="tbNote" class="tb-screen" hidden><div class="tb-note-card" id="tbNoteCard"></div></div>
+
+<div id="tbInstall" class="tb-install" hidden role="dialog" aria-modal="true" aria-labelledby="tbInstallH">
+  <div class="tb-card">
+    <div class="tb-mark"><img src="icons/icon-192.png" alt=""></div>
+    <h1 id="tbInstallH">ติดตั้งแอป TrekBook</h1>
+    <p class="tb-lead">มีไอคอนบนหน้าจอ เปิดเต็มจอเหมือนแอปทั่วไป ไม่ต้องโหลดจาก Store และจำการเข้าสู่ระบบไว้ให้</p>
+    <div id="tbInstallBody"></div>
+    <button class="tb-link" type="button" id="tbSkip">ใช้งานในเบราว์เซอร์ต่อ</button>
+  </div>
+</div>
+
+<noscript><div class="tb-screen"><div class="tb-note-card"><h2>ต้องเปิด JavaScript</h2><p>TrekBook ต้องใช้ JavaScript กรุณาเปิดในเบราว์เซอร์ปกติ</p></div></div></noscript>
+
+<script>
+var tbApp = (function () {
+  'use strict';
+  var ICON_SHARE = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M12 3v12"/><path d="m7.5 7.5 4.5-4.5 4.5 4.5"/><path d="M8 11H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-2"/></svg>';
+  var ICON_ADD = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/>' +
+    '<path d="M12 8v8M8 12h8"/></svg>';
+  var ICON_DOTS = '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" style="color:#3d5446"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+  var ICON_MORE = '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" style="color:#3d5446"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+
+  var EXEC = String(window.TREKBOOK_EXEC_URL || '').trim();
+  var EXEC_OK = /^https:\/\/script\.google\.com\/(a\/macros\/[^\/?#]+\/|macros\/)s\/[A-Za-z0-9_-]+\/(exec|dev)$/.test(EXEC);
+  var APPS_SCRIPT_FRAME = /^https:\/\/[a-z0-9.-]*script\.googleusercontent\.com$/i;   // หน้าเว็บ TrekBook (ข้างใน iframe ของ Apps Script)
+  var K = { session: 'tb.session', device: 'tb.device', gl: 'tb.gl', skip: 'tb.installSkip' };
+  var $ = function (id) { return document.getElementById(id); };
+  var frame = $('tbFrame'), splash = $('tbSplash');
+
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch (e) { /* โหมดส่วนตัว */ } }
+  function readGl() {
+    try { var g = JSON.parse(get(K.gl) || 'null'); return g && g.nonce && Date.now() - g.at < 10 * 60000 ? g : null; } catch (e) { return null; }
+  }
+
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/i.test(ua);
+  var isLine = /\bLine\//i.test(ua);
+  var inAppBrowser = isLine || /FBAN|FBAV|FB_IAB|Instagram|; wv\)/i.test(ua);
+  var mm = function (q) { try { return window.matchMedia(q).matches; } catch (e) { return false; } };
+  var standalone = navigator.standalone === true || mm('(display-mode: standalone)') || mm('(display-mode: fullscreen)') || mm('(display-mode: minimal-ui)');
+
+  // ---------- กลับมาจากหน้า Google (ลงชื่อเข้าใช้ด้วย Google ในแอป) ----------
+  var q = new URLSearchParams(location.search), extra = '', oauth = q.has('code') || q.has('error');
+  var NONCE = /^[A-Za-z0-9_-]{16,64}$/, resume = q.get('resume') || '';
+  if (oauth) {
+    var st = q.get('state') || '', m = /^app:([A-Za-z0-9_-]{16,64})$/.exec(st), gl = readGl();
+    var same = !!(m && gl && gl.nonce === m[1]);
+    ['code', 'state', 'error'].forEach(function (k) { if (q.has(k)) extra += '&' + k + '=' + encodeURIComponent(q.get(k)); });
+    if (m && !same) extra += '&handoff=1';   // เปิดกลับมาในหน้าต่างอื่น (เช่น Safari) → ให้แอปที่รออยู่รับผลต่อ
+    if (same) set(K.gl, null);
+  } else if (NONCE.test(resume)) {
+    set(K.gl, JSON.stringify({ nonce: resume, at: Date.now() }));   // "เข้าสู่ระบบในหน้านี้" จากหน้ายืนยันบัญชี Google → รับผลที่ฝากไว้
+  }
+  var returning = oauth || NONCE.test(resume);
+  if (location.search) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ไม่เป็นไร */ } }
+
+  // ---------- เปิดเว็บแอป TrekBook ใน iframe ----------
+  var bridgeSeen = false, ready = false, timers = [], noteKind = '', inner = null;
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function showSplash() { splash.classList.remove('out'); splash.hidden = false; $('tbSlow').hidden = true; }
+  function hideSplash() {
+    ready = true;
+    splash.classList.add('out');
+    setTimeout(function () { if (ready) splash.hidden = true; }, 400);
+  }
+  function showNote(kind) {
+    noteKind = kind;
+    var card = $('tbNoteCard');
+    if (kind === 'offline') {
+      card.innerHTML = '<div class="ic">📶</div><h2>ไม่มีอินเทอร์เน็ต</h2><p>TrekBook ต้องต่ออินเทอร์เน็ตเพื่อโหลดทริปและการจองล่าสุด เชื่อมต่อแล้วแตะ "ลองใหม่" (หรือรอสักครู่ แอปจะเปิดเอง)</p>' +
+        '<button class="tb-btn" type="button" onclick="tbApp.reload()">ลองใหม่</button>';
+    } else {
+      card.innerHTML = '<div class="ic">🛠️</div><h2>ยังไม่ได้ตั้งค่าหน้าแอป</h2><p>เปิดไฟล์ <code>config.js</code> แล้ววางลิงก์เว็บแอป Apps Script (ลงท้ายด้วย <code>/exec</code>) ในบรรทัด ' +
+        '<code>TREKBOOK_EXEC_URL</code></p>';
+    }
+    $('tbNote').hidden = false;
+  }
+  function hideNote() { noteKind = ''; $('tbNote').hidden = true; }
+
+  function load() {
+    clearTimers();
+    if (!EXEC_OK) { showNote('setup'); hideSplash(); return; }
+    if (navigator.onLine === false) { showNote('offline'); hideSplash(); return; }
+    hideNote();
+    ready = false; bridgeSeen = false; inner = null;
+    showSplash();
+    frame.src = EXEC + '?app=1' + extra;
+    extra = '';   // code ของ Google ใช้ได้ครั้งเดียว — โหลดใหม่ครั้งถัดไปไม่ส่งซ้ำ
+    timers.push(setTimeout(function () { if (!ready) $('tbSlow').hidden = false; }, 12000));
+    timers.push(setTimeout(function () { if (!ready) hideSplash(); }, 30000));
+  }
+  frame.addEventListener('load', function () {
+    // หน้าเว็บไม่ได้ติดตั้ง AppBridgeJS / ตั้งลิงก์หน้าแอปไม่ตรง → ปิดหน้าโหลดเองหลังเว็บขึ้น
+    timers.push(setTimeout(function () { if (!bridgeSeen && !ready) hideSplash(); }, 6000));
+  });
+  window.addEventListener('online', function () { if (noteKind === 'offline') load(); });
+
+  // ---------- คุยกับหน้าเว็บ TrekBook (AppBridgeJS) ----------
+  /** ข้อความต้องมาจากหน้าเว็บที่อยู่ "ใน iframe ของเราเอง" เท่านั้น (ไล่ขึ้นไปทีละชั้นจนเจอ iframe ของหน้าแอป) */
+  function fromOurFrame(src) {
+    try {
+      for (var w = src, i = 0; w && i < 6; i++) {
+        if (w === frame.contentWindow) return true;
+        if (w === window || w === w.parent) return false;
+        w = w.parent;
+      }
+    } catch (x) { /* ไม่เป็นไร */ }
+    return false;
+  }
+  window.addEventListener('message', function (e) {
+    if (!APPS_SCRIPT_FRAME.test(e.origin) || !e.data || typeof e.data !== 'object' || !e.source || !fromOurFrame(e.source)) return;
+    var d = e.data;
+    var reply = function (msg) { try { e.source.postMessage(msg, e.origin); } catch (x) { /* ไม่เป็นไร */ } };
+    var tok = function (v) { return typeof v === 'string' && v.length < 400 ? v : null; };
+    if (d.tbApp === 'hello') {
+      bridgeSeen = true;
+      inner = { win: e.source, origin: e.origin };
+      reply({ tbApp: 'session', session: get(K.session), device: get(K.device), gl: readGl(), retry: !!d.retry });
+    } else if (d.tbApp === 'save') {
+      set(K.session, tok(d.session));
+      set(K.device, tok(d.device));
+    } else if (d.tbApp === 'gl-go') {
+      if (typeof d.url !== 'string' || d.url.indexOf('https://accounts.google.com/') !== 0 || !/^[A-Za-z0-9_-]{16,64}$/.test(String(d.nonce))) return;
+      set(K.gl, JSON.stringify({ nonce: String(d.nonce), at: Date.now() }));
+      reply({ tbApp: 'gl-ack' });
+      location.assign(d.url);
+    } else if (d.tbApp === 'gl-clear') {
+      set(K.gl, null);
+    } else if (d.tbApp === 'ready') {
+      bridgeSeen = true;
+      clearTimers();
+      hideSplash();
+    }
+  });
+  // เข้าสู่ระบบจากอีกหน้าต่างของแอป (ใช้ที่เก็บข้อมูลร่วมกัน เช่น หน้า Google เปิดซ้อนในแอป) → ส่งต่อให้หน้านี้ด้วย
+  window.addEventListener('storage', function (e) {
+    if (e.key !== K.session || !e.newValue || !inner) return;
+    try { inner.win.postMessage({ tbApp: 'session', session: e.newValue, device: get(K.device), gl: readGl(), retry: true }, inner.origin); } catch (x) { /* ไม่เป็นไร */ }
+  });
+
+  // ---------- แนะนำการติดตั้ง (เปิดในเบราว์เซอร์บนมือถือ) ----------
+  var deferred = null, installState = '';
+  function offerInstall() {
+    if (standalone || returning || !(isIOS || isAndroid)) return false;
+    return Date.now() - (parseInt(get(K.skip), 10) || 0) > 30 * 86400000;
+  }
+  function steps(list) {
+    return '<ol class="tb-steps">' + list.map(function (s, i) { return '<li><span class="n">' + (i + 1) + '</span><span>' + s + '</span></li>'; }).join('') + '</ol>';
+  }
+  function renderInstall() {
+    var body = $('tbInstallBody'), html = '';
+    if (installState === 'done') {
+      html = '<div class="tb-done">🎉</div><p class="tb-lead" style="margin-bottom:8px;">ติดตั้งแล้ว! เปิด <b>TrekBook</b> จากไอคอนบนหน้าจอได้เลย</p>';
+    } else if (inAppBrowser) {
+      html = '<p class="tb-lead" style="margin-top:-6px;">ตอนนี้เปิดอยู่ในแอป' + (isLine ? ' LINE' : 'อื่น') + ' ซึ่งติดตั้งไม่ได้ — เปิดในเบราว์เซอร์ก่อนนะ</p>' +
+        (isLine ? '<button class="tb-btn" type="button" onclick="tbApp.openExternal()">เปิดใน' + (isIOS ? ' Safari' : 'เบราว์เซอร์') + '</button>' : '') +
+        '<div class="tb-hint">หรือแตะเมนู ' + ICON_DOTS + ' ของแอปนั้น แล้วเลือก "เปิดในเบราว์เซอร์"</div>' +
+        '<button class="tb-btn light" type="button" style="margin-top:10px;" onclick="tbApp.copyLink(this)">คัดลอกลิงก์</button>';
+    } else if (isIOS) {
+      // Safari บน iOS 26 ขึ้นไป (แบบ "กะทัดรัด" ที่ตั้งมาจากโรงงาน): ปุ่มแชร์อยู่ในเมนู ⋯ ข้างช่องที่อยู่
+      var otherIOS = /CriOS|FxiOS|EdgiOS/.test(ua), safari26 = !otherIOS && (parseInt((/Version\/(\d+)/.exec(ua) || [])[1], 10) || 0) >= 26;
+      html = steps([otherIOS ? 'แตะปุ่ม ' + ICON_SHARE + ' <b>แชร์</b> (ข้างช่องที่อยู่ด้านบน)'
+          : safari26 ? 'แตะ ' + ICON_MORE + ' ข้างช่องที่อยู่ แล้วแตะ ' + ICON_SHARE + ' <b>แชร์</b> (ถ้าเห็นปุ่ม ' + ICON_SHARE + ' ที่แถบ แตะได้เลย)'
+          : 'แตะปุ่ม ' + ICON_SHARE + ' <b>แชร์</b> (แถบด้านล่าง · iPad อยู่มุมขวาบน)',
+        'เลื่อนลงแล้วแตะ ' + ICON_ADD + ' <b>เพิ่มไปยังหน้าจอโฮม</b>' + (safari26 ? ' (เปิดสวิตช์ "เปิดเป็นเว็บแอป" ไว้)' : ''),
+        'แตะ <b>เพิ่ม</b> มุมขวาบน แล้วเปิด TrekBook จากไอคอนบนหน้าจอ']);
+    } else if (deferred) {
+      html = '<button class="tb-btn" type="button" onclick="tbApp.install()">📲 ติดตั้งแอป TrekBook</button>' +
+        '<div class="tb-hint">ใช้พื้นที่น้อยมาก · อัปเดตเองทุกครั้งที่มีของใหม่</div>';
+    } else {
+      html = steps(['แตะเมนู ' + ICON_DOTS + ' มุมขวาบนของ Chrome', 'เลือก <b>ติดตั้งแอป</b> หรือ <b>เพิ่มลงในหน้าจอหลัก</b>', 'แตะ <b>ติดตั้ง</b> แล้วเปิด TrekBook จากไอคอนบนหน้าจอ']);
+    }
+    body.innerHTML = html;
+    $('tbSkip').textContent = installState === 'done' ? 'ปิด' : 'ใช้งานในเบราว์เซอร์ต่อ';
+  }
+  function showInstall() { renderInstall(); $('tbInstall').hidden = false; }
+  function hideInstall() { $('tbInstall').hidden = true; }
+  $('tbSkip').addEventListener('click', function () { set(K.skip, String(Date.now())); hideInstall(); });
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferred = e;
+    if (!$('tbInstall').hidden) renderInstall();
+  });
+  window.addEventListener('appinstalled', function () {
+    installState = 'done';
+    set(K.skip, String(Date.now()));
+    if (!$('tbInstall').hidden) renderInstall();
+  });
+
+  // ---------- เริ่ม ----------
+  load();
+  if (offerInstall()) setTimeout(showInstall, 600);
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () { /* ไม่เป็นไร */ }); });
+  }
+
+  return {
+    reload: load,
+    install: function () {
+      if (!deferred) return;
+      var p = deferred;
+      deferred = null;
+      p.prompt();
+      (p.userChoice || Promise.resolve({})).then(function (c) {
+        if (c && c.outcome === 'accepted') { installState = 'done'; set(K.skip, String(Date.now())); }
+        renderInstall();
+      });
+    },
+    openExternal: function () { location.href = location.pathname + '?openExternalBrowser=1'; },
+    copyLink: function (btn) {
+      var url = location.origin + location.pathname, ok = false;
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = url; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+        document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); document.body.removeChild(ta);
+      } catch (e) { ok = false; }
+      if (!ok && navigator.clipboard) { navigator.clipboard.writeText(url).catch(function () {}); ok = true; }
+      if (btn) btn.textContent = ok ? 'คัดลอกแล้ว ✓ ไปวางในเบราว์เซอร์ได้เลย' : url;
+    }
+  };
+})();
+</script>
+</body>
+</html>
