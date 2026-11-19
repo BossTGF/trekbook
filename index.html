@@ -248,6 +248,13 @@ var tbApp = (function () {
     if (/^T-\d{1,8}$/i.test(sT)) share = 'trip=' + sT.toUpperCase();
     else if (/^PG-\d{1,8}$/i.test(sG)) share = 'page=' + sG.toUpperCase();
     else if (/^@?[A-Za-z0-9][A-Za-z0-9_ -]{1,40}$/.test(sP)) share = 'p=' + encodeURIComponent(sP.replace(/^@+/, '').trim().toLowerCase());
+    // รหัสชวนเพื่อน (&r=) · คนแชร์ (&v=) · ช่องทางที่แชร์ (&s=) → ส่งต่อด้วย (นับยอดจองจากลิงก์ + ให้เครดิตชวนเพื่อนได้ถูกคน)
+    if (share) {
+      var sR = String(q.get('r') || '').trim(), sV = String(q.get('v') || '').trim(), sS = String(q.get('s') || '').trim().toLowerCase();
+      if (/^R[0-9A-Z]{5,13}$/i.test(sR)) share += '&r=' + sR.toUpperCase();
+      if (/^R[0-9A-Z]{5,13}$/i.test(sV)) share += '&v=' + sV.toUpperCase();
+      if (/^[lfcmq]$/.test(sS)) share += '&s=' + sS;
+    }
   }
   if (share) extra += '&' + share;
   // ล้างพารามิเตอร์อื่นออกจากแถบที่อยู่ — คงลิงก์แชร์ไว้ (เปิดในเบราว์เซอร์ / รีเฟรช แล้วยังพาไปทริปเดิม)
