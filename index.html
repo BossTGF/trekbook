@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>TrekBook</title>
 <meta name="description" content="จองที่นั่งทริปเดินป่า จ่ายเงิน และติดตามทริปของคุณ">
+<meta name="tb-share-links" content="1"><!-- ป้ายบอกเว็บแอปว่าหน้าแอปนี้รับลิงก์แชร์ได้แล้ว (?trip= ?page= ?p=) — ลิงก์แชร์จะใช้โดเมนนี้ให้เอง -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TrekBook">
+<meta property="og:title" content="TrekBook — จองทริปเดินป่า">
+<meta property="og:description" content="ดูทริป เลือกที่นั่งจากผังรถจริง แบ่งจ่ายเป็นงวด — ยังไม่เป็นสมาชิกก็ดูได้">
 <meta name="theme-color" content="#f3f1ea">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -235,7 +240,18 @@ var tbApp = (function () {
     set(K.gl, JSON.stringify({ nonce: resume, at: Date.now() }));   // "เข้าสู่ระบบในหน้านี้" จากหน้ายืนยันบัญชี Google → รับผลที่ฝากไว้
   }
   var returning = oauth || NONCE.test(resume);
-  if (location.search) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ไม่เป็นไร */ } }
+
+  // ---------- ลิงก์แชร์ (?trip=T-xxxx · ?page=PG-xxxx · ?p=ชื่อลิงก์เพจ) → ส่งต่อให้เว็บแอปเปิดทริป/เพจนั้นทันที ----------
+  var share = '';
+  if (!oauth) {
+    var sT = String(q.get('trip') || '').trim(), sG = String(q.get('page') || '').trim(), sP = String(q.get('p') || '').trim();
+    if (/^T-\d{1,8}$/i.test(sT)) share = 'trip=' + sT.toUpperCase();
+    else if (/^PG-\d{1,8}$/i.test(sG)) share = 'page=' + sG.toUpperCase();
+    else if (/^@?[A-Za-z0-9][A-Za-z0-9_ -]{1,40}$/.test(sP)) share = 'p=' + encodeURIComponent(sP.replace(/^@+/, '').trim().toLowerCase());
+  }
+  if (share) extra += '&' + share;
+  // ล้างพารามิเตอร์อื่นออกจากแถบที่อยู่ — คงลิงก์แชร์ไว้ (เปิดในเบราว์เซอร์ / รีเฟรช แล้วยังพาไปทริปเดิม)
+  if (location.search) { try { history.replaceState(null, '', location.pathname + (share ? '?' + share : '') + location.hash); } catch (e) { /* ไม่เป็นไร */ } }
 
   // ---------- เปิดเว็บแอป TrekBook ใน iframe ----------
   var bridgeSeen = false, ready = false, timers = [], noteKind = '', inner = null;
@@ -324,7 +340,7 @@ var tbApp = (function () {
   // ---------- แนะนำการติดตั้ง (เปิดในเบราว์เซอร์บนมือถือ) ----------
   var deferred = null, installState = '';
   function offerInstall() {
-    if (standalone || returning || !(isIOS || isAndroid)) return false;
+    if (standalone || returning || share || !(isIOS || isAndroid)) return false;   // คนเปิดลิงก์แชร์มาดูทริป — ไม่ขวางด้วยหน้าแนะนำติดตั้ง
     return Date.now() - (parseInt(get(K.skip), 10) || 0) > 30 * 86400000;
   }
   function steps(list) {
@@ -389,9 +405,9 @@ var tbApp = (function () {
         renderInstall();
       });
     },
-    openExternal: function () { location.href = location.pathname + '?openExternalBrowser=1'; },
+    openExternal: function () { location.href = location.pathname + '?openExternalBrowser=1' + (share ? '&' + share : ''); },
     copyLink: function (btn) {
-      var url = location.origin + location.pathname, ok = false;
+      var url = location.origin + location.pathname + (share ? '?' + share : ''), ok = false;
       try {
         var ta = document.createElement('textarea');
         ta.value = url; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
